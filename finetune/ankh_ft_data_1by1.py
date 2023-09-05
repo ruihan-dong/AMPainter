@@ -4,12 +4,11 @@ import pandas as pd
 from modlamp.core import read_fasta
 random.seed(1234)
 
-input_file = './data/9-7316.fasta'
-# input_file = './data/toy.fasta'
+input_file = '../data/9-7316.fasta'
 seq_name = read_fasta(input_file)
 seqs = seq_name[0]
 
-masking_ratio = 0.5
+masking_ratio = 0.2
 seqs_mask = []
 rev_mask = []
 
@@ -30,4 +29,4 @@ for i, seq in enumerate(seqs):
 
 # save as df
 df = pd.DataFrame(zip(seqs, seqs_mask, rev_mask), columns=['seq', 'source', 'target'])
-df.to_csv('./data/maskseq1by1_' + str(masking_ratio) + '.csv')
+df.to_csv('../data/maskseq1by1_' + str(masking_ratio) + '.csv')
