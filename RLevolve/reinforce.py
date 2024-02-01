@@ -182,7 +182,7 @@ if __name__ == "__main__":
     model.to(device=device)
 
     # load input seqs
-    df_seq = pd.read_csv('./data/AMP200.txt', header=None)  # AMP200/random200/SignalP708
+    df_seq = pd.read_csv('../data/AMP200.txt', header=None)  # AMP200/random200/SignalP708
     initial_seq = df_seq.iloc[:200, 0].values.tolist()
     print('input sequence numbers: ', len(initial_seq))
 
