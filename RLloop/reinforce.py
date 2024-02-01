@@ -33,7 +33,7 @@ batch_size = 16
 epoches = 2
 
 # generation parameters
-masking_ratio = 0.2     # 0.2 for toy data, 0.5 for 7316 training
+masking_ratio = 0.2
 max_length = 41
 num_beams = 10
 temperature = 2.0
@@ -46,14 +46,15 @@ def train_agent(save_path, device,
                 experience_replay, early_stop):
     
     start_time = time()
-
     agent = Agent(model, tokenizer, max_length, device)
-    
+
     optimizer = torch.optim.Adam(agent.mutator.parameters(), lr=learning_rate)
     agent.mutator.train()
     experience = Inception()
 
+    # Information for the logger
     step_log = [[], [], []]
+
     best_loss, early_stop_count = 100, 0
     for step in tqdm(range(n_steps)):
         mean_train_loss = []
@@ -119,6 +120,7 @@ def train_agent(save_path, device,
         save_step_record(step_seqs, step_scores, step_likelihood, os.path.join(save_path, str(step+1) + 'step_record.csv'))
         mean_train_loss = np.array(mean_train_loss).mean()
 
+        # Need this for Vizard plotting
         step_log[0].append(step + 1)
         step_log[1].append(np.mean(step_scores))
         step_log[2].append(mean_train_loss)
@@ -132,6 +134,8 @@ def train_agent(save_path, device,
             early_stop_count = 0
         else:
             early_stop_count += 1
+            # save agent as well just to test
+            torch.save(agent.mutator.state_dict(), os.path.join(save_path, 'step'+str(step+1)+'_Agent.ckpt'))
         if early_stop_count >= early_stop:
             print('\nModel is not improving, so we halt the training session.')
             break
@@ -156,23 +160,23 @@ if __name__ == "__main__":
     model = model.from_pretrained(path)
     tokenizer = tokenizer.from_pretrained(path)
     print('load fine-tuned model: ', name)
-
+    
     model.eval()
     model.to(device=device)
 
     # load input seqs
-    df_seq = pd.read_csv('../data/random966.txt', header=None)
+    df_seq = pd.read_csv('../data/combined966.txt', header=None)
     initial_seq = df_seq.iloc[:966, 0].values.tolist()
     print('input sequence numbers: ', len(initial_seq))
 
     t0 = time()
-    train_agent(save_path = './outputs',
+    train_agent(save_path = './outputs/',
                 device = device, 
                 model = model, 
                 tokenizer = tokenizer, 
                 max_length = max_length, 
                 learning_rate = 1e-3, batch_size = 128, 
-                batchs_seqs = initial_seq, n_steps = 40, iterations = 5, 
-                experience_replay = False, early_stop = 15)
+                batchs_seqs = initial_seq, n_steps = 40, iterations = 8, 
+                experience_replay = False, early_stop = 40)
     t1 = time()
     print("Use time: {:.4f}s".format(t1 - t0))
