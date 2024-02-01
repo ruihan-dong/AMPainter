@@ -2,25 +2,28 @@ import matplotlib
 matplotlib.use("Agg")
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 import torch
 import pandas as pd
 from time import time
 from copy import deepcopy
-from sklearn.model_selection import KFold
 from dhg import Hypergraph
+
+from transformers import logging
+logging.set_verbosity_error()
 
 from HyperAMP import HGNN
 from utils import *
 torch.manual_seed(1234)
 
 # Hyperparameters
-learning_rate = 5e-4
+learning_rate = 1e-4
 weight_decay = 5e-4
-batch_size = 64
+batch_size = 128
 epoches = 20
-n_splits = 5  # k folds
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Model training
@@ -69,63 +72,54 @@ def predict(model, data_loader):
     return preds.numpy().flatten(), true_labels.numpy().flatten()
 
 
-def main(data_train, data_test, data_val = None):
-    # k-fold cross validation
-    kfold = KFold(n_splits = n_splits, shuffle = True, random_state = 4)
+def main(premodel, tokenizer, device, data_train, data_test, data_val = None):
     metrics_train = []
     metrics_val = []
     metrics_test = []
+
+    # defined val data
+    df_train = data_train
+    df_train.index = range(len(df_train))
+    df_val = data_val
+    df_val.index = range(len(df_val))
     
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(data_train)):
-        print('Fold: ', str(fold+1))
-        df_train = data_train.iloc[train_idx]
-        df_train.index = range(len(df_train))
-        df_val = data_train.iloc[val_idx]
-        df_val.index = range(len(df_val))
-        '''
-        # defined val data
-        df_train = data_train
-        df_train.index = range(len(df_train))
-        df_val = data_val
-        df_val.index = range(len(df_val))
-        '''
-        train_dataset = load_data(df_train.index.values, df_train.label.values, df_train)
-        val_dataset = load_data(df_val.index.values, df_val.label.values, df_val)
+    train_dataset = load_data(df_train.index.values, df_train.label.values, df_train, premodel, tokenizer, device)
+    val_dataset = load_data(df_val.index.values, df_val.label.values, df_val, premodel, tokenizer, device)
 
-        train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_padding)
-        val_loader = data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_padding)
-        
-        model = HGNN().to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = weight_decay)
+    train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_padding)
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_padding)
+    
+    model = HGNN().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = weight_decay)
 
-        best_rmse = 100
-        best_epoch = 0        
-        for epoch in range(epoches):
-            train(model, train_loader, optimizer, epoch)
-            # train metrics
-            preds_train, real_labels_train = predict(model, train_loader)
-            tr_spearman, tr_pearson, tr_r2, tr_rmse = evalute(preds_train, real_labels_train)
-            metrics_train.append([tr_spearman, tr_pearson, tr_r2, tr_rmse])
+    best_rmse = 100
+    best_epoch = 0        
+    for epoch in range(epoches):
+        train(model, train_loader, optimizer, epoch)
+        # train metrics
+        preds_train, real_labels_train = predict(model, train_loader)
+        tr_spearman, tr_pearson, tr_r2, tr_rmse = evalute(preds_train, real_labels_train)
+        metrics_train.append([tr_spearman, tr_pearson, tr_r2, tr_rmse])
 
-            # validation
-            preds, real_labels = predict(model, val_loader)
-            val_spearman, val_pearson, val_r2, val_rmse = evalute(preds, real_labels)
-            print("Validation at epoch {}:, Spearman {:.4f}, \
-                    Pearson {:.4f}, R2 {:.4f}, RMSE {:.4f}".format(epoch, val_spearman, val_pearson, val_r2, val_rmse))
-            if val_rmse < best_rmse:
-                print("RMSE decreases from {:.4f} to {:.4f}, save the model".format(best_rmse, val_rmse))
-                best_rmse = val_rmse
-                best_epoch = epoch
-                best_metrics = [val_spearman, val_pearson, val_r2, val_rmse]
-                # model_name = 'Fold_' + str(fold+1)
-                model_name = deepcopy(model.state_dict())
-                # torch.save(model.state_dict(), 'hyp_best_model')
-            else:
-                print("No improvement in RMSE since epoch {}".format(best_epoch))
-        metrics_val.append(best_metrics)
-        # remember to ensemble k-folds results
-        metrics, test_preds = test(data_test, model_name)
-        metrics_test.append(metrics)
+        # validation
+        preds, real_labels = predict(model, val_loader)
+        val_spearman, val_pearson, val_r2, val_rmse = evalute(preds, real_labels)
+        print("Validation at epoch {}:, Spearman {:.4f}, \
+                Pearson {:.4f}, R2 {:.4f}, RMSE {:.4f}".format(epoch, val_spearman, val_pearson, val_r2, val_rmse))
+        if val_rmse < best_rmse:
+            print("RMSE decreases from {:.4f} to {:.4f}, save the model".format(best_rmse, val_rmse))
+            best_rmse = val_rmse
+            best_epoch = epoch
+            best_metrics = [val_spearman, val_pearson, val_r2, val_rmse]
+            # model_name = 'Fold_' + str(fold+1)
+            model_name = deepcopy(model.state_dict())
+            # torch.save(model.state_dict(), 'hyp_model_logMIC_V1')
+        else:
+            print("No improvement in RMSE since epoch {}".format(best_epoch))
+    metrics_val.append(best_metrics)
+    # remember to ensemble k-folds results
+    metrics, test_preds = test(data_test, model_name, premodel, tokenizer, device)
+    metrics_test.append(metrics)
 
     metric_header = ['Spearman', 'Pearson', 'R2', 'RMSE']
     results_train = pd.DataFrame(metrics_train, columns=metric_header)
@@ -141,9 +135,9 @@ def main(data_train, data_test, data_val = None):
     print("test results: \n", results_test.mean())
 
 
-def test(data_test, model_path):
+def test(data_test, model_path, premodel, tokenizer, device):
     print("--------start testing-------")
-    test_dataset = load_data(data_test.index.values, data_test.label.values, data_test)
+    test_dataset = load_data(data_test.index.values, data_test.label.values, data_test, premodel, tokenizer, device)
     test_loader = data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_padding)
     
     model = HGNN().to(device)
@@ -160,17 +154,16 @@ def test(data_test, model_path):
 
 if __name__ == "__main__":
     # data files
-    train_file = 'trainall.txt'
-    valid_file = 'valid.txt'
-    test_file = 'test.txt'
-    '''
-    train_file = 'toy/train_toy.txt'
-    valid_file = 'toy/test_toy.txt'
-    test_file = 'toy/test_toy.txt'
-    '''
+    train_file = '../data/train.txt'
+    valid_file = '../data/valid.txt'
+    test_file = '../data/test.txt'
+    # load model
+    premodel, tokenizer = ankh.load_base_model()
+    premodel.eval()
+    premodel.to(device = device)
     # load data
     data_train = read_dataset(train_file)
-    # data_val = read_dataset(valid_file)
+    data_val = read_dataset(valid_file)
     data_test = read_dataset(test_file)
     # run
-    main(data_train, data_test)
+    main(premodel, tokenizer, device, data_train, data_test, data_val)
