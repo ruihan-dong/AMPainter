@@ -1,5 +1,6 @@
 # AMPainter
 Painting the peptides with antimicrobial attibutes via deep reinforcement & hypergraph learning
+
 (V1 upload: 24-02-01 by Ruihan Dong)
 
 ## Overview
@@ -7,6 +8,7 @@ This framework consists of three modules:
 * a policy network to assign the mutation sites
 * a fine-tuned protein language model to replace the assigned residues
 * a predictor named HyperAMP to evaluate the antimicrobial activity
+
 
 ## Requirements
 * pytorch
@@ -16,6 +18,7 @@ This framework consists of three modules:
 * sklearn
 * Levenshtein
 * modlamp
+
 
 ## Usage
 ### 1) HyperAMP solely
