@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 
-data = pd.read_csv('../data/trainall_test.txt', sep='\t', header=None)
+data = pd.read_csv('../data/all.txt', sep='\t', header=None)
 name = data[0].tolist()
 seq = data[1].tolist()
 
