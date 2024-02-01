@@ -75,9 +75,17 @@ class Agent():
 
             mask_aa = torch.multinomial(att_prob_zero, num_samples=1)
 
+            # replace mask by fine-tuned Ankh
             seqs_mask = get_masked_seqs(mask_aa, batch_seqs)
             outputs = embed_dataset(self.model, self.tokenizer, self.device, seqs_mask)
             output_seqs = get_modified_seqs(batch_seqs, mask_aa, outputs)
+
+            # replace mask randomly for ablation
+            # output_seqs = random_mutation(mask_aa, batch_seqs)
+            
+            # whether end the episode
+            # output_score = scoring_function(output_seqs)
+            # distance = levenshtein_distance_matrix(output_seqs, batch_seqs)
             
             # end the episode for repeated seqs
             endseq_idx = []
