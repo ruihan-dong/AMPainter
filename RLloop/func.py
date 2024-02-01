@@ -1,4 +1,5 @@
 import torch
+import random
 import numpy as np
 import pandas as pd
 
@@ -78,7 +79,6 @@ def NLLLoss(inputs, targets):
         Outputs:
             loss : (batch_size) *Loss for each example*
     """
-
     if torch.cuda.is_available():
         target_expanded = torch.zeros(inputs.size()).cuda()
     else:
@@ -101,14 +101,22 @@ def scoring_function(seqs):
     df_data.rename(columns={0:'name', 1: 'seq', 2:'label'}, inplace=True)
 
     # predicted logMIC values (func test from predict.py)
-    model_path= '../HyperAMP/hyp_best_model_ankhbase'
+    model_path= '../HyperAMP/hyp_best_model_V1'
     preds = test(df_data, model_path)
-    score = [(1 / (1 + pow(10, (pred - 1)))) for pred in preds]   # transformed reward score
-    return np.array(score, dtype=np.float32)
+    # process outliers
+    scores = []
+    for pred in preds:
+        if pred < 0:
+            scores.append(0)
+        elif pred > 1:
+            scores.append(1)
+        else:
+            scores.append(pred)
+    return np.array(scores, dtype=np.float32)
 
 
 class Inception(object):
-    def __init__(self, memory_max_size=100):
+    def __init__(self, memory_max_size=1000):
         self.memory: pd.DataFrame = pd.DataFrame(columns=['seqs', 'score', 'likelihood'])
         self.memory_max_size = memory_max_size
 
@@ -141,3 +149,18 @@ class Inception(object):
 def save_step_record(seqs, scores, likelihood, path):
     df = pd.DataFrame(zip(seqs, scores, likelihood))
     df.to_csv(path, header=False)
+
+def random_mutation(batch_mask_aa, seqs):
+    AAs = 'ACDEFGHIKLMNPQRSTVWY'
+    outputs = []
+    for i, seq in enumerate(seqs):
+        seqls = list(seq)
+        mask_aa = batch_mask_aa[i]
+        if len(mask_aa) == 0:
+            outputs.append(seqs)
+        else:
+            for k, n in enumerate(mask_aa):
+                n = int(n) 
+                seqls[n] = random.choice(AAs)    # replace masked aa to random residue
+            outputs.append(''.join(token for token in seqls))
+    return outputs
