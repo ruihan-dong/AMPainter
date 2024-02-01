@@ -14,6 +14,16 @@ from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 
+# for V1: directly fitting reward function
+def reward_score(value):
+    if value == '/':
+        score = 0
+    else:
+        value = float(value)
+        # score = value
+        score = 1 / (1+ pow(10, (value - 2)))
+    return score
+
 # data.csv: No./seq/MIC
 def read_dataset(path):
     try:
@@ -27,7 +37,7 @@ def read_dataset(path):
         values = line.split()
         target_keys.append(values[0])
         X_seq.append(values[1])
-        y.append(float(values[2]))
+        y.append(reward_score(values[2]))
     file.close()
 
     df_data = pd.DataFrame(zip(target_keys, X_seq, y))
@@ -36,8 +46,8 @@ def read_dataset(path):
     return df_data
 
 # node feature from raw esm
-def get_esm(peptide_name, input_seq, model, alphabet, device):
-    emb_path = '../data/raw1b/'
+def get_esm(peptide_name, input_seq, model=None, alphabet=None, device=None):
+    emb_path = '/home/dong_rh/code/AMPainterV1/data/esm2/'
     emb_file = os.path.join(emb_path, peptide_name + '.pt')
     if os.path.exists(emb_file):
         esm = torch.load(emb_file)
@@ -93,9 +103,9 @@ def get_protT5(peptide_name, input_seq):
         print('ProtT5 File Not Found')
     return protT5_emb
 
-df_k2 = pd.read_pickle('/home/dong_rh/code/AMPainter/data/tf-idf/k2_tfidf.pkl')
-df_k3 = pd.read_pickle('/home/dong_rh/code/AMPainter/data/tf-idf/k3_tfidf.pkl')
-df_k4 = pd.read_pickle('/home/dong_rh/code/AMPainter/data/tf-idf/k4_tfidf.pkl')
+df_k2 = pd.read_pickle('../data/tf-idf/k2_tfidf.pkl')
+df_k3 = pd.read_pickle('../data/tf-idf/k3_tfidf.pkl')
+df_k4 = pd.read_pickle('../data/tf-idf/k4_tfidf.pkl')
 df_ls = [df_k2, df_k3, df_k4]
 # k-mer tf-idf value
 def tf_idf(peptide_name, seq, edge, k):
@@ -110,7 +120,7 @@ def tf_idf(peptide_name, seq, edge, k):
     return eweight
 
 # on-the-fly update tf-idf edge weights when testing
-k_idf = pd.read_pickle('../data/tf-idf/k_idf.pkl')
+k_idf = pd.read_pickle('../tf-idf/k_idf.pkl')
 def calc_tfidf(peptide_name, seq, edge, k):
     vectorizer = CountVectorizer(ngram_range=(k,k), analyzer='char')
     X = vectorizer.fit_transform([seq])
@@ -141,13 +151,11 @@ def get_hypergraph(peptide_name, seq, esm_emb):
             ew = tf_idf(peptide_name, seq, edge, k) # preprocess to calculate tf-idf, save in a file
             # ew = 1
             eweight.append(ew)
-        # hg = dhg.Hypergraph(num, elist, eweight, esm_emb)
         hg = dhg.Hypergraph(num, elist, eweight)
         return hg.L_HGNN
     para2 = get_paras(2)
     para3 = get_paras(3)
     para4 = get_paras(4)
-    # hg = dhg.Hypergraph(num, e_list = elist, v_weight = esm_emb)
     return [para2, para3, para4]
 
 # Transform to hypergraph
