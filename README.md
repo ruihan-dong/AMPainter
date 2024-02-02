@@ -23,14 +23,14 @@ This framework consists of three modules:
 ## Usage
 ### 1) HyperAMP solely
 #### Train predictor
-```python
+```bash
 cd HyperAMP
 python ankh_embedding.py
 python tfidf.py
 python train.py # or train_5folds.py
 ```
 #### Predict
-```python
+```bash
 python ./HyperAMP/predict.py  # change input file path first
 ```
 Length of a input peptide sequence should be less than 40.
@@ -40,21 +40,25 @@ The output of a input sequence is the transformed score based on its logMIC valu
 ### 2) Fine-tune Ankh
 #### Data processing
 (This step can be skipped for using `./data/maskseq1by1_0.2.csv` directly)
-```python
+```bash
 python ./finetune/ankh_ft_data_1by1.py
 ```
 #### Run
-```python
+```bash
 python ./finetune/ankh_ft_noval.py
 ```
 
 ### 3) AMPainter framework
 #### Train agent network
-```python
+```bash
 python ./RLloop/reinforce.py
 ```
-#### Evolve input sequences (fine-tuning mode)
+#### Evolve input sequences (fine-tuning mode, suggested)
 Default params: `lr = 1e-3`, `batch_size = 128`, `n_steps = 10`, `iterations = 8`
-```python
+```bash
 python ./RLevolve/reinforce.py
+```
+#### Evolve input sequences (parallel mode)
+```bash
+python ./RLevolve/reinforce_para.py
 ```
