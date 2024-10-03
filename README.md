@@ -1,7 +1,6 @@
 # AMPainter
-Painting the peptides with antimicrobial attibutes via deep reinforcement & hypergraph learning
+Painting Peptides with Antimicrobial Potency through Deep Reinforcement Learning
 
-(V1 upload: 24-02-01 by Ruihan Dong)
 
 ## Overview
 This framework consists of three modules:
@@ -17,7 +16,7 @@ This framework consists of three modules:
 * transformers
 * sklearn
 * Levenshtein
-* modlamp
+* [modlamp](https://modlamp.org)
 
 
 ## Usage
@@ -53,12 +52,17 @@ python ./finetune/ankh_ft_noval.py
 ```bash
 python ./RLloop/reinforce.py
 ```
-#### Evolve input sequences (fine-tuning mode, suggested)
+#### Evolve input sequences
 Default params: `lr = 1e-3`, `batch_size = 128`, `n_steps = 10`, `iterations = 8`
 ```bash
 python ./RLevolve/reinforce.py
 ```
-#### Evolve input sequences (parallel mode)
+
+### 4) Fitness function version
+#### Evolve input sequences
 ```bash
-python ./RLevolve/reinforce_para.py
+python ./fitness/reinforce.py
 ```
+
+## Citation
+To be updated
